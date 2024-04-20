@@ -1,0 +1,18 @@
+Hello Packets are build after the following scheme:
+
+"MODE_HELLO::Sender_Name::G::P::A"
+
+Where MODE_ is the mode of the sending endpoint
+and HELLO is the type of message.
+Sender_Name is the name of the sender,
+G is the public generator number,
+P is the public prime number,
+A is the public key of Sender_Name.
+
+Message Packets are build after the following scheme:
+
+"MESSAGE::Message(Encrypted)::Hash_of_unencrypted_message"
+
+Close Connection Packets are buile after the following scheme:
+
+"MESSAGE::!CLOSE!::Hash_of_'!CLOSE'"
