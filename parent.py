@@ -3,7 +3,7 @@ import sys
 import random
 import hashlib
 import sympy
-import vigenere
+import symmetric_encryption
 
 
 class Endpoint:
@@ -121,7 +121,7 @@ class Endpoint:
         message_hash = int(hashlib.sha256(message.encode()).hexdigest(), 16)
         print(f"LOG: The message hash is: {message_hash}")
         print(f"DEBUGING: The message is: {message}")
-        cipher = vigenere.encrypt(message, self.shared_key)
+        cipher = symmetric_encryption.encrypt(message, self.shared_key)
         print(f"LOG: The cipher is: {cipher}")
         to_be_send = self.gen_message(cipher, message_hash)
         self.send(to_be_send)
@@ -135,7 +135,8 @@ class Endpoint:
         and returns the message."""
         incoming_packet = self.listen("MESSAGE")
         print("LOG: MESSAGE has been received.")
-        message = vigenere.decrypt(incoming_packet[1], self.shared_key)
+        print(f"DEBUGING: The chaiffre is: {incoming_packet[1]}")
+        message = symmetric_encryption.decrypt(incoming_packet[1], self.shared_key)
         print("LOG: Message has been succesfully decrypted.")
         if int(hashlib.sha256(message.encode()).hexdigest(), 16) == int(incoming_packet[2]):
             print("LOG: Message has been succesfully verified")
