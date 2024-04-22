@@ -9,9 +9,11 @@ G is the public generator number,
 P is the public prime number,
 A is the public key of Sender_Name.
 
+
 Message Packets are build after the following scheme:
 
 "MESSAGE::Message(Encrypted)::Hash_of_unencrypted_message"
+
 
 Close Connection Packets are buile after the following scheme:
 
