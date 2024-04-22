@@ -15,4 +15,4 @@ Message Packets are build after the following scheme:
 
 Close Connection Packets are buile after the following scheme:
 
-"MESSAGE::!CLOSE!::Hash_of_'!CLOSE'"
+"MESSAGE::!CLOSE!::Hash_of_'!CLOSE!'"
