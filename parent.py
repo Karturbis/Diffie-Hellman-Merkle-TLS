@@ -15,9 +15,7 @@ import symmetric_encryption
 class Endpoint:
     """This class contains all methods needed by an endpoint"""
 
-    def __init__(self, input_traffic_file, output_traffic_file, name, mode):
-        self.input_traffic_file = input_traffic_file
-        self.output_traffic_file = output_traffic_file
+    def __init__(self, name, mode):
         self.priv_key = 42
         self.shared_key = 42
         self.name = name
@@ -85,9 +83,9 @@ class Endpoint:
         prime and the peer pub key as parameters."""
         return (peer_pub_key**self.priv_key)%public_prime
 
-    def send(self, message):
+    def send(self, message, receiver):
         """Sends the given message to the output_traffic"""
-        with open(self.output_traffic_file, "w", encoding="utf-8") as sender:
+        with open(f"to_{receiver}", "w", encoding="utf-8") as sender:
             sender.write(message)
 
     def keyword_listen(self, key_word):
