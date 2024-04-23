@@ -15,6 +15,6 @@ Message Packets are build after the following scheme:
 "MESSAGE::Message(Encrypted)::Hash_of_unencrypted_message"
 
 
-Close Connection Packets are buile after the following scheme:
+Close Connection Packets are build after the following scheme:
 
 "MESSAGE::!CLOSE!::Hash_of_'!CLOSE!'"
