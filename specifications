@@ -24,6 +24,6 @@ Close Connection Packets are build after the following scheme:
 auth_message is a random 12 charater
 String, to authenticate the Sender
 
-The building scheme for traffic files is:
+The building scheme for traffic files is (all .lower):
 
-to_{name_of_receiver.lower}_channel-{channel_number}
+to_{name_of_receiver}_channel-{channel_number}
