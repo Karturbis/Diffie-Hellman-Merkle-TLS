@@ -28,10 +28,7 @@ class Endpoint:
         """Generates a random prime number between a and b,
         by generating a list of primes and then pick a
         random element of the list."""
-        primes = []
-        for i in range(a, b):
-            if sympy.isprime(i):
-                primes.append(i)
+        primes = [i for i in range(a, b) if sympy.isprime(i)]
         return random.choice(primes)
 
     def gen_hello_message(
