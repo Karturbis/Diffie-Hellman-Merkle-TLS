@@ -1,10 +1,12 @@
 Hello Packets are build after the following scheme:
 
-"MODE_HELLO::Sender_Name::G::P::A"
+"HELLO::Sender_Name::Encryption_protocol::G::P::A"
 
 Where MODE_ is the mode of the sending endpoint
 and HELLO is the type of message.
 Sender_Name is the name of the sender,
+Encryption_protocol is the protocol
+used to encrypt the messages,
 G is the public generator number,
 P is the public prime number,
 A is the public key of Sender_Name.
@@ -12,9 +14,12 @@ A is the public key of Sender_Name.
 
 Message Packets are build after the following scheme:
 
-"MESSAGE::Message(Encrypted)::Hash_of_unencrypted_message"
+"MESSAGE::Sender_Name::Message(Encrypted)::Hash_of_unencrypted_message"
 
 
 Close Connection Packets are build after the following scheme:
 
-"MESSAGE::!CLOSE!::Hash_of_'!CLOSE!'"
+"CLOSECONNECTION::Sender_Name::auth_message::Hash_of_auth_message"
+
+auth_message is a random 12 charater
+String, to authenticate the Sender
