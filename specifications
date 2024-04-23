@@ -10,6 +10,7 @@ used to encrypt the messages,
 G is the public generator number,
 P is the public prime number,
 A is the public key of Sender_Name.
+Key exchanges use channel 0.
 
 
 Message Packets are build after the following scheme:
