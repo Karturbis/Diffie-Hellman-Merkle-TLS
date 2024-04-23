@@ -31,8 +31,9 @@ class Endpoint:
         primes = [i for i in range(a, b) if sympy.isprime(i)]
         return random.choice(primes)
 
+########################## Contents of this function need to be in calling function, so this function can be removed!
     def gen_hello_message(
-        self, public_generator = 42,
+        self, enc_protocol, public_generator = 42,
         public_prime = 42, peer_pub_key = 42
         ):
         """Generates the hello message for
@@ -43,15 +44,18 @@ class Endpoint:
             public_generator, public_prime, peer_pub_key
             )
         return str(
-            self.mode + "_HELLO::" + self.name + "::"
+            "HELLO::" + self.name + "::" + enc_protocol
             + str(public_generator) + "::"
             + str(public_prime) + "::" + str(self_pub_key)
             )
+##########################
 
-    def gen_message(self, cipher, message_hash):
+    def gen_message(self, message_type, contents):
         """Generates a sendable message from
         a cipher and the message hash."""
-        return str("MESSAGE::" + str(cipher) + "::" + str(message_hash))
+        for i in range(len(contents)):
+            contents[i] += "::"
+        return (f"{message_type}::{self.name}::") + "".join([i for i in contents]).strip("::")
 
     def priv_key_gen(self, public_prime):
         """Creates the private key, which is a
