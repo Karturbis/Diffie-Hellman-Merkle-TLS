@@ -7,6 +7,8 @@ def encrypt(message, key):
     chiffre = ""
     message = message.upper()
     for i in message:
+        if not i in ALPHABET:
+            continue
         message_number = ALPHABET.index(i)
         message_and_key = (message_number+key) % len(ALPHABET)
         chiffre = chiffre + (ALPHABET[message_and_key])
