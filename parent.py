@@ -13,12 +13,15 @@ import symmetric_encryption
 
 
 class Endpoint:
-    """This class contains all methods needed by an endpoint"""
+    """Contains all methods needed by an endpoint"""
 
     def __init__(self, name):
         self.priv_key = 42
         self.shared_key = 42
         self.name = name
+        self.priv_keys ={}
+        self.with_peer_keys = {}
+        self.encryption_protocol_peer = {}
         self.main()
 
     def gen_prime(self, a = 2**16, b = 2**17):
@@ -28,38 +31,19 @@ class Endpoint:
         primes = [i for i in range(a, b) if sympy.isprime(i)]
         return random.choice(primes)
 
-########################## Contents of this function need to be in calling function, so this function can be removed!
-    def gen_hello_message(
-        self, enc_protocol, public_generator = 42,
-        public_prime = 42, peer_pub_key = 42
-        ):
-        """Generates the hello message for
-        the key exchange.
-        See pub_key_gen() for more information, about all
-        parameters being 42 as the default."""
-        public_generator, public_prime, self_pub_key = self.pub_key_gen(
-            public_generator, public_prime, peer_pub_key
-            )
-        return str(
-            "HELLO::" + self.name + "::" + enc_protocol
-            + str(public_generator) + "::"
-            + str(public_prime) + "::" + str(self_pub_key)
-            )
-##########################
-
     def gen_message(self, message_type, contents):
         """Generates a sendable message from
         a cipher and the message hash."""
-        for i in range(len(contents)):
+        for i, content in enumerate(contents):
             contents[i] += "::"
-        return (f"{message_type}::{self.name}::") + "".join([i for i in contents]).strip("::")
+        return (f"{message_type}::{self.name}::") + "".join(set(contents)).strip(":")
 
     def priv_key_gen(self, public_prime):
         """Creates the private key, which is a
         random integer smaller than public_prime."""
         return random.randint(1, int(public_prime) - 1)
 
-    def pub_key_gen(
+    def key_gen(
         self, public_generator = 42,
         public_prime = 42, peer_pub_key = 42
         ):
@@ -71,11 +55,11 @@ class Endpoint:
         if public_generator == public_prime == peer_pub_key == 42:
             public_prime = self.gen_prime()
             public_generator = random.randint(2**12, int(public_prime)-1)
-        self.priv_key = self.priv_key_gen(int(public_prime))
+        priv_key = self.priv_key_gen(int(public_prime))
         self_pub_key = (
-            int(public_generator)**self.priv_key)%int(public_prime
+            int(public_generator)**priv_key)%int(public_prime
             )
-        return public_generator, public_prime, self_pub_key
+        return [priv_key, public_generator, public_prime, self_pub_key]
 
     def shared_key_gen(self, public_prime, peer_pub_key):
         """Returns the shared key, takes the public
@@ -98,41 +82,46 @@ class Endpoint:
                 ) as listener:
                 input_packet = listener.read()
                 if input_packet.startswith(key_word):
-                    return input_packet.split("::")
+                    listening = False
+        return input_packet.split("::")
 
-    def key_exchange_client(self):
+    def key_exchange_init(self, peer, encryption_protocol):
         """Initiates a key exchange."""
-        self.send(self.gen_hello_message())
-        print("LOG: CLIENT_HELLO message has been send.")
-        incoming_packet = self.keyword_listen("SERVER_HELLO")
-        print("LOG: SERVER_HELLO message has been received.")
+        keys = self.key_gen()
+        self.with_peer_keys[peer] = keys[1:]
+        self.priv_keys[peer] = keys[:1]
+        message = self.with_peer_keys[peer]
+        message.insert(0, encryption_protocol)
+        self.send(self.gen_message("HELLO", message), peer, 0)
+        print("LOG: HELLO message has been send.")
+
+        incoming_packet = self.keyword_listen("HELLO", 0)
+        print("LOG: HELLO message has been received.")
         shared_key = self.shared_key_gen(
             int(incoming_packet[3]),
             int(incoming_packet[4])
         )
         print("LOG: Shared key has been calculated")
-        self.shared_key = shared_key
+        self.with_peer_keys[peer].append(shared_key)
         print(f"DEBUGING: shared key = {shared_key}")
 
-    def key_exchange_server(self):
+    def key_exchange_wait(self, peer):
         """Waits for a keychange to be initiated 
         by the other endpoint."""
-        incoming_packet = self.keyword_listen("CLIENT_HELLO")
-        print("LOG: CLIENT_HELLO message has been received.")
-        self.send(self.gen_hello_message(
-            incoming_packet[2],
-            incoming_packet[3], incoming_packet[4]
-            ))
-        print("LOG: SERVER_HELLO message has been send.")
+        incoming_packet = self.keyword_listen("HELLO", 0)
+        print("LOG: HELLO message has been received.")
+        self.with_peer_keys[peer]= incoming_packet[2:5]  # incoming public keys
+
+        print("LOG: HELLO message has been send.")
         shared_key = self.shared_key_gen(
             int(incoming_packet[3]),
             int(incoming_packet[4])
         )
         print("LOG: Shared key has been calculated")
-        self.shared_key = shared_key
+        self.with_peer_keys[peer].append(shared_key)
         print(f"DEBUGING: shared key = {shared_key}")
 
-    def chiffre_send(self, message):
+    def chiffre_send(self, message, receiver, channel):
         """Send and receive messages, after
         an key exchange is established."""
         message_hash = int(hashlib.sha256(message.encode()).hexdigest(), 16)
@@ -141,16 +130,16 @@ class Endpoint:
         cipher = symmetric_encryption.encrypt(message, self.shared_key)
         print(f"LOG: The cipher is: {cipher}")
         to_be_send = self.gen_message(cipher, message_hash)
-        self.send(to_be_send)
+        self.send(to_be_send, receiver, channel)
         print("LOG: MESSAGE has been send.")
         self.clear_receiving()
 
-    def chiffre_receive(self):
+    def chiffre_receive(self, channel):
         """Listens for encrypted, incoming
         packages with type 'MESSAGE'. If such packet
         arrives, it verifies the hash, after that it
         prints and returns the message."""
-        incoming_packet = self.keyword_listen("MESSAGE")
+        incoming_packet = self.keyword_listen("MESSAGE", channel)
         print("LOG: MESSAGE has been received.")
         print(f"DEBUGING: The chiffre is: {incoming_packet[1]}")
         message = symmetric_encryption.decrypt(
