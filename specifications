@@ -19,7 +19,7 @@ Message Packets are build after the following scheme:
 
 Close Connection Packets are build after the following scheme:
 
-"CLOSECONNECTION::Sender_Name::auth_message::Hash_of_auth_message"
+"CLOSECONNECTION::Sender_Name::auth_message(encrypted)::Hash_of_auth_message"
 
 auth_message is a random 12 charater
 String, to authenticate the Sender
