@@ -23,3 +23,7 @@ Close Connection Packets are build after the following scheme:
 
 auth_message is a random 12 charater
 String, to authenticate the Sender
+
+The building scheme for traffic files is:
+
+to_{name_of_receiver.lower}
