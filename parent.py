@@ -6,6 +6,7 @@ of the Endpoint class has an input- and an output-file. If the
 Endpoint wants to send something, it writes it to the output-file."""
 
 import sys
+import queue
 import random
 import hashlib
 import sympy
