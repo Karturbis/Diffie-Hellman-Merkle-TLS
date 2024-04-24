@@ -1,2 +1,4 @@
-sympy
-cryptography
+aioconsole==0.7.0
+aiofiles==23.2.1
+mpmath==1.3.0
+sympy==1.12
