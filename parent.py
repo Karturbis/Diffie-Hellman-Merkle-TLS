@@ -136,7 +136,6 @@ class Endpoint:
         an key exchange is established."""
         message_hash = int(hashlib.sha256(message.encode()).hexdigest(), 16)
         print(f"LOG: The message hash is: {message_hash}")
-        print(f"DEBUGING: The message is: {message}")
         cipher = symmetric_encryption.encrypt(message, self.shared_key)
         print(f"LOG: The cipher is: {cipher}")
         to_be_send = self.gen_message(cipher, message_hash)
