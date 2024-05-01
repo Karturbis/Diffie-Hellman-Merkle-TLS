@@ -1,6 +1,6 @@
 Hello Packets are build after the following scheme:
 
-"HELLO::Sender_Name::Encryption_protocol::G::P::A"
+"HELLO::Sender_Name::Encryption_protocol::channel::G::P::A"
 
 Where MODE_ is the mode of the sending endpoint
 and HELLO is the type of message.
