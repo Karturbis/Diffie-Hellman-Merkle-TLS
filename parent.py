@@ -6,7 +6,6 @@ of the Endpoint class has an input- and an output-file. If the
 Endpoint wants to send something, it writes it to the output-file."""
 
 import sys
-import queue
 import random
 import hashlib
 import sympy
@@ -19,10 +18,10 @@ class Endpoint:
     def __init__(self, name):
         self.priv_key = 42
         self.shared_key = 42
+        self.encryption_protocol = "CAESAR"
         self.name = name
         self.priv_keys ={}
-        self.with_peer_keys = {}
-        self.encryption_protocol_peer = {}
+        self.peer_variables = {}
         self.main()
 
     def gen_prime(self, a = 2**16, b = 2**17):
@@ -35,9 +34,15 @@ class Endpoint:
     def gen_message(self, message_type, contents):
         """Generates a sendable message from
         a cipher and the message hash."""
-        for i, content in enumerate(contents):
+        print(f"DEBUG: Contents at begin of gen_message: {contents}")
+        for i, _ in enumerate(contents):
+            contents[i] = str(contents[i])
             contents[i] += "::"
-        return (f"{message_type}::{self.name}::") + "".join(set(contents)).strip(":")
+            print(f"DEBUG: hello from for loop i = {contents[i]}")
+        print(f"Contents is now: {contents}")
+        x = (f"{message_type}::{self.name}::") + "".join(contents).strip(":")
+        print(f"DEBUG: message to send: {x}")
+        return x
 
     def priv_key_gen(self, public_prime):
         """Creates the private key, which is a
@@ -69,29 +74,31 @@ class Endpoint:
 
     def send(self, message, receiver, channel):
         """Sends the given message to the output_traffic"""
-        with open(f"to_{receiver}_channel-{channel}", "w", encoding="utf-8") as sender:
+        with open(f"to_{receiver.lower()}_channel-{channel}", "w", encoding="utf-8") as sender:
             sender.write(message)
 
     def keyword_listen(self, key_word, channel):
         """Listens on the input file, until a
         message with the given keyword comes
         in, then it returns the message."""
+
         listening = True
         while listening:
             with open(
-                f"to_{self.name}_channel-{channel}", "r", encoding="utf-8"
+                f"to_{self.name.lower()}_channel-{channel}", "r", encoding="utf-8"
                 ) as listener:
                 input_packet = listener.read()
                 if input_packet.startswith(key_word):
                     listening = False
         return input_packet.split("::")
 
-    def key_exchange_init(self, peer, encryption_protocol):
+    def key_exchange_init(self, peer, encryption_protocol, channel = 12):
         """Initiates a key exchange."""
         keys = self.key_gen()
-        self.with_peer_keys[peer] = keys[1:]
+        self.peer_variables[peer] = {"keys":keys[1:]}
         self.priv_keys[peer] = keys[:1]
-        message = self.with_peer_keys[peer]
+        print(f"DEBUG: peer_variables = {self.peer_variables}")
+        message = self.peer_variables[peer]["keys"]
         message.insert(0, encryption_protocol)
         self.send(self.gen_message("HELLO", message), peer, 0)
         print("LOG: HELLO message has been send.")
@@ -99,28 +106,32 @@ class Endpoint:
         incoming_packet = self.keyword_listen("HELLO", 0)
         print("LOG: HELLO message has been received.")
         shared_key = self.shared_key_gen(
-            int(incoming_packet[3]),
-            int(incoming_packet[4])
+            int(incoming_packet[4]),
+            int(incoming_packet[5])
         )
         print("LOG: Shared key has been calculated")
-        self.with_peer_keys[peer].append(shared_key)
+        self.peer_variables[peer["keys"]].append(shared_key)
         print(f"DEBUGING: shared key = {shared_key}")
 
     def key_exchange_wait(self, peer):
         """Waits for a keychange to be initiated 
         by the other endpoint."""
+        print("start waiting for key ex")
         incoming_packet = self.keyword_listen("HELLO", 0)
         print("LOG: HELLO message has been received.")
-        self.with_peer_keys[peer]= incoming_packet[2:5]  # incoming public keys
-
+        self.peer_variables[peer] = {"keys":incoming_packet[3:6]}  # incoming public keys
+        self.send("HELLO", peer, 0)######################################change the HELLO to the G, P and own Pub_key
         print("LOG: HELLO message has been send.")
         shared_key = self.shared_key_gen(
-            int(incoming_packet[3]),
-            int(incoming_packet[4])
+            int(incoming_packet[4]),
+            int(incoming_packet[5])
         )
         print("LOG: Shared key has been calculated")
-        self.with_peer_keys[peer].append(shared_key)
-        print(f"DEBUGING: shared key = {shared_key}")
+        self.peer_variables[peer]["keys"].append(shared_key)
+        print(f"DEBUGING: Keys are = {self.peer_variables}")
+        print(f"DEBUGING: P = {incoming_packet[4]}")
+        print(f"DEBUGING: A = {incoming_packet[5]}")
+        print(f"DEBUGING: Schared Key = {shared_key}")
 
     def chiffre_send(self, message, receiver, channel):
         """Send and receive messages, after
@@ -130,10 +141,9 @@ class Endpoint:
         print(f"DEBUGING: The message is: {message}")
         cipher = symmetric_encryption.encrypt(message, self.shared_key)
         print(f"LOG: The cipher is: {cipher}")
-        to_be_send = self.gen_message(cipher, message_hash)
+        to_be_send = self.gen_message("MESSAGE", [cipher, message_hash])
         self.send(to_be_send, receiver, channel)
         print("LOG: MESSAGE has been send.")
-        self.clear_receiving()
 
     def chiffre_receive(self, channel):
         """Listens for encrypted, incoming
@@ -142,39 +152,32 @@ class Endpoint:
         prints and returns the message."""
         incoming_packet = self.keyword_listen("MESSAGE", channel)
         print("LOG: MESSAGE has been received.")
-        print(f"DEBUGING: The chiffre is: {incoming_packet[1]}")
+        print(f"DEBUGING: The chiffre is: {incoming_packet[2]}")
         message = symmetric_encryption.decrypt(
-            incoming_packet[1], self.shared_key
+            incoming_packet[2], self.shared_key
             )
         print("LOG: Message has been succesfully decrypted.")
         if int(hashlib.sha256(message.encode()).hexdigest(), 16) == int(
-                incoming_packet[2]
+                incoming_packet[3]
                 ):
             print("LOG: Message has been succesfully verified")
             print(f"LOG: The message is: {message}")
+            self.clear_receiving(channel)
             return message
         print("WARNING: Message can not be verified.")
-        print(f"WARNING: Received hash is: {int(incoming_packet[2])}")
+        print(f"WARNING: Received hash is: {int(incoming_packet[3])}")
         print(
             f"WARNING: Calculated hash is: "
             f"{int(hashlib.sha256(message.encode()).hexdigest(), 16)}")
         print(f"LOG: The unverified received message is: {message}")
+        self.clear_receiving(channel)
+        return message
 
     def main(self):
         """The main method, checks the mode,
         the program runs in and redistributes
         the work."""
-        if self.mode == "SERVER":
-            self.key_exchange_server()
-            if self.chiffre_receive() == "!CLOSE!":
-                self.clear_transmitting()
-                sys.exit(0)
-            self.main_loop()
-        elif self.mode == "CLIENT":
-            self.key_exchange_client()
-            self.main_loop()
-        else:
-            print("WARNING: No available mode was selected.")
+        self.main_loop()
 
     def main_loop(self):
         """Loop, to continously send and receive messages."""
@@ -182,29 +185,20 @@ class Endpoint:
         while not done:
             input_message = input(
                 "Please enter a message, or a command; '?' for help: "
-                )
-            if input_message.lower == "?":
-                print("type !close! to close the connection")
-            elif input_message.upper in ("!CLOSE!", "!C!", "!QUIT!", "!Q!"):
-                self.clear_transmitting()
-                self.chiffre_send("!CLOSE!")
-                print("Completed Tasks")
-                sys.exit(0)
-            else:
-                self.chiffre_send(input_message)
-
-            if self.chiffre_receive() == "!CLOSE!":
-                self.clear_transmitting()
-                sys.exit(0)
+                ).split("::")
+            if input_message[0] == "IKE":
+                receiver = input_message[1]
+                self.key_exchange_init(receiver, self.encryption_protocol)
+                continue
+            elif input_message[0] == "WKE":
+                self.key_exchange_wait(input_message[1])
+                continue
+            receiver = input_message[0].lower
+            self.chiffre_send(input_message[1], receiver, 12)
         sys.exit(0)
 
-    def clear_transmitting(self):
-        """Clears the output file."""
-        self.send("")
-        print("LOG: Output file has been cleared.")
-
-    def clear_receiving(self):
+    def clear_receiving(self, channel):
         """Clears the input file."""
-        with open(self.input_traffic_file, "w", encoding="utf-8") as sender:
+        with open(f"to_{self.name}_channel-{channel}", "w", encoding="utf-8") as sender:
             sender.write("")
         print("LOG: Inputfile has been cleared.")
