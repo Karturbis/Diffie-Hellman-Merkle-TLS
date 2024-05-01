@@ -1,5 +1,4 @@
 /__pycache__/
 /venv/
-/test.py
-/test_2.py
-/.gitignore
+/test*
+/to_*
