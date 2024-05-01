@@ -20,8 +20,7 @@ class Endpoint:
         self.shared_key = 42
         self.encryption_protocol = "CAESAR"
         self.name = name
-        self.priv_keys ={}
-        self.peer_variables = {}
+        self.peer_variables = {} # keys are in the scheme: {priv_key, pub_gen, pub_prime, self_pub, other_pub, shared_key}
         self.main()
 
     def gen_prime(self, a = 2**16, b = 2**17):
@@ -32,8 +31,7 @@ class Endpoint:
         return random.choice(primes)
 
     def gen_message(self, message_type, contents):
-        """Generates a sendable message from
-        a cipher and the message hash."""
+        """Generates a sendable message."""
         print(f"DEBUG: Contents at begin of gen_message: {contents}")
         for i, _ in enumerate(contents):
             contents[i] = str(contents[i])
@@ -56,21 +54,20 @@ class Endpoint:
         """Generates the public key of the endpoint, if no
         parameters are given or all given parameters are 42, it
         also creates the public prime and the public generator.
-        Public key is generated, using the standart
+        Public key is generated, using the standard
         Diffie-Hellman-Merkle method."""
         if public_generator == public_prime == peer_pub_key == 42:
             public_prime = self.gen_prime()
             public_generator = random.randint(2**12, int(public_prime)-1)
         priv_key = self.priv_key_gen(int(public_prime))
-        self_pub_key = (
-            int(public_generator)**priv_key)%int(public_prime
-            )
-        return [priv_key, public_generator, public_prime, self_pub_key]
+        self_pub_key = pow(public_generator, priv_key, public_prime)
+        print(f"priv_key is: {priv_key}")
+        return [priv_key, public_generator, public_prime, self_pub_key, peer_pub_key]
 
-    def shared_key_gen(self, public_prime, peer_pub_key):
+    def shared_key_gen(self, public_prime, peer_pub_key, priv_key):
         """Returns the shared key, takes the public
         prime and the peer pub key as parameters."""
-        return (peer_pub_key**self.priv_key)%public_prime
+        return pow(peer_pub_key, priv_key, public_prime) # returns peer_pub_key ^ priv_key modulo public_prime
 
     def send(self, message, receiver, channel):
         """Sends the given message to the output_traffic"""
@@ -94,43 +91,58 @@ class Endpoint:
 
     def key_exchange_init(self, peer, encryption_protocol, channel = 12):
         """Initiates a key exchange."""
-        keys = self.key_gen()
-        self.peer_variables[peer] = {"keys":keys[1:]}
-        self.priv_keys[peer] = keys[:1]
+        self.peer_variables[peer] = {"keys":self.key_gen()}
         print(f"DEBUG: peer_variables = {self.peer_variables}")
-        message = self.peer_variables[peer]["keys"]
+        message = self.peer_variables[peer]["keys"][1:4]
+        message.insert(0, channel)
         message.insert(0, encryption_protocol)
         self.send(self.gen_message("HELLO", message), peer, 0)
         print("LOG: HELLO message has been send.")
-
         incoming_packet = self.keyword_listen("HELLO", 0)
         print("LOG: HELLO message has been received.")
+        self.peer_variables[peer]["keys"].insert(-1, int(incoming_packet[6]))
         shared_key = self.shared_key_gen(
-            int(incoming_packet[4]),
-            int(incoming_packet[5])
+            int(incoming_packet[5]),
+            int(incoming_packet[6]),
+            int(self.peer_variables[peer]["keys"][0])
         )
         print("LOG: Shared key has been calculated")
-        self.peer_variables[peer["keys"]].append(shared_key)
+        del self.peer_variables[peer]["keys"][5]
+        self.peer_variables[peer]["keys"].append(shared_key)
+        print(f"DEBUG: claculated peer variables are: {self.peer_variables}")
         print(f"DEBUGING: shared key = {shared_key}")
 
-    def key_exchange_wait(self, peer):
+    def key_exchange_wait(self, channel = 42):
         """Waits for a keychange to be initiated 
         by the other endpoint."""
         print("start waiting for key ex")
         incoming_packet = self.keyword_listen("HELLO", 0)
         print("LOG: HELLO message has been received.")
-        self.peer_variables[peer] = {"keys":incoming_packet[3:6]}  # incoming public keys
-        self.send("HELLO", peer, 0)######################################change the HELLO to the G, P and own Pub_key
+        peer = incoming_packet[1]
+        self.peer_variables[peer]= {"keys":self.key_gen(
+            int(incoming_packet[4]),
+            int(incoming_packet[5]),
+            int(incoming_packet[6])
+            )
+        }
+        print(f"DEBUG: claculated peer variables are: {self.peer_variables}")
+        peer_vars_to_be_send = self.peer_variables[peer]["keys"][1:4]
+        peer_vars_to_be_send.insert(0, channel)
+        peer_vars_to_be_send.insert(0, self.encryption_protocol)
+        to_be_send = self.gen_message("HELLO", peer_vars_to_be_send)
+        self.send(to_be_send, peer, 0)
         print("LOG: HELLO message has been send.")
         shared_key = self.shared_key_gen(
-            int(incoming_packet[4]),
-            int(incoming_packet[5])
+            int(incoming_packet[5]),
+            int(incoming_packet[6]),
+            self.peer_variables[peer]["keys"][0]
         )
         print("LOG: Shared key has been calculated")
         self.peer_variables[peer]["keys"].append(shared_key)
         print(f"DEBUGING: Keys are = {self.peer_variables}")
-        print(f"DEBUGING: P = {incoming_packet[4]}")
-        print(f"DEBUGING: A = {incoming_packet[5]}")
+        print(f"DEBUGING: G = {incoming_packet[4]}")
+        print(f"DEBUGING: P = {incoming_packet[5]}")
+        print(f"DEBUGING: A = {incoming_packet[6]}")
         print(f"DEBUGING: Schared Key = {shared_key}")
 
     def chiffre_send(self, message, receiver, channel):
@@ -191,7 +203,7 @@ class Endpoint:
                 self.key_exchange_init(receiver, self.encryption_protocol)
                 continue
             elif input_message[0] == "WKE":
-                self.key_exchange_wait(input_message[1])
+                self.key_exchange_wait()
                 continue
             receiver = input_message[0].lower
             self.chiffre_send(input_message[1], receiver, 12)
