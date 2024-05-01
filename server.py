@@ -2,4 +2,4 @@
 the parent module, to create a server"""
 from parent import Endpoint
 
-server_0 = Endpoint("to_server", "to_client", "Bob", "SERVER")
+server_0 = Endpoint("Bob")
