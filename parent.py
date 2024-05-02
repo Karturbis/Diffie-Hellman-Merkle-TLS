@@ -205,7 +205,7 @@ class Endpoint:
             elif input_message[0] == "WKE":
                 self.key_exchange_wait()
                 continue
-            receiver = input_message[0].lower
+            receiver = input_message[0].lower()
             self.chiffre_send(input_message[1], receiver, 12)
         sys.exit(0)
 
